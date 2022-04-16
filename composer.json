@@ -1,0 +1,19 @@
+{
+    "name": "xooooooox/database",
+    "description": "MIT",
+    "type": "library",
+    "license": "MIT",
+    "autoload": {
+        "psr-4": {
+            "xooooooox\\database\\": "src/"
+        }
+    },
+    "authors": [
+        {
+            "name": "cosasce",
+            "email": "cosasce@gmail.com"
+        }
+    ],
+    "minimum-stability": "stable",
+    "require": {}
+}
