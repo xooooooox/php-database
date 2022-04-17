@@ -4,72 +4,71 @@ namespace xooooooox\database;
 
 use \PDO;
 use \PDOException;
-use \PDOStatement;
 
 /**
  * Class Db
  * @package xooooooox\database
- * @method static \PDO pdo()
- * @method static bool begin()
- * @method static bool commit()
- * @method static bool rollback()
- * @method static array query($sql = '', $params = [])
- * @method static array first($sql = '', $params = [])
- * @method static int execute($sql = '', $params = [])
- * @method static string transaction(callable $transaction, $attempts = 1)
  */
 class Db {
 
     /**
-     * @var PDO
+     * @var \PDO
      */
-    protected $_pdo;
+    protected static $_instance = null;
 
     /**
-     * @param string $dsn
-     * @param string $user
-     * @param string $pass
-     * @param array $options
+     * instance a connect
      */
-    public function __construct($dsn = '', $user = '', $pass = '', $options = []) {
+    public static function instance($dsn = '', $user = '', $pass = '', $options = [], $name = 'default'){
         if ($options === []){
             $options = [
                 PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
             ];
         }
-        $this->_pdo = new PDO($dsn, $user, $pass, $options);
+        $pdo = new PDO($dsn, $user, $pass, $options);
+        DbManager::put($pdo,$name);
+        if($name === 'default' || static::$_instance === null){
+            static::$_instance = $pdo;
+        }
     }
 
     /**
-     * pdo
-     * return PDO
+     * @return \PDO|null
      */
-    public function pdo() {
-        return $this->_pdo;
+    public static function getInstance($name = 'default'){
+        return DbManager::get($name);
+    }
+
+    /**
+     * @param \PDO $instance
+     * @param string $name
+     */
+    public static function putInstance($instance, $name = 'default'){
+        return DbManager::put($instance, $name);
     }
 
     /**
      * begin
      * return bool
      */
-    public function begin(){
-        return $this->_pdo->beginTransaction();
+    public static function begin(){
+        return static::$_instance->beginTransaction();
     }
 
     /**
      * commit
      * return bool
      */
-    public function commit(){
-        return $this->_pdo->commit();
+    public static function commit(){
+        return static::$_instance->commit();
     }
 
     /**
      * rollback
      * return bool
      */
-    public function rollback(){
-        return $this->_pdo->rollBack();
+    public static function rollback(){
+        return static::$_instance->rollBack();
     }
 
     /**
@@ -78,8 +77,8 @@ class Db {
      * @param array $params
      * @return array
      */
-    public function query($sql = '', $params = []) {
-        $stmt = $this->_pdo->prepare($sql);
+    public static function query($sql = '', $params = []) {
+        $stmt = static::$_instance->prepare($sql);
         $stmt->execute($params);
         return $stmt->fetchAll();
     }
@@ -90,8 +89,8 @@ class Db {
      * @param array $params
      * @return array
      */
-    public function first($sql = '', $params = []) {
-        $result = $this->query($sql, $params);
+    public static function first($sql = '', $params = []) {
+        $result = static::query($sql, $params);
         if (isset($result[0])){
             return $result[0];
         }
@@ -104,8 +103,8 @@ class Db {
      * @param array $params
      * @return int
      */
-    public function execute($sql = '', $params = []) {
-        $stmt = $this->_pdo->prepare($sql);
+    public static function execute($sql = '', $params = []) {
+        $stmt = static::$_instance->prepare($sql);
         $stmt->execute($params);
         return $stmt->rowCount();
     }
@@ -116,7 +115,7 @@ class Db {
      * @param int $attempts
      * @return string
      */
-    public function transaction(callable $transaction, $attempts = 1) {
+    public static function transaction(callable $transaction, $attempts = 1) {
         $err = '';
         if ($attempts <= 0) {
             $err = 'the execution was unsuccessful, the number of times was exhausted.';
@@ -124,32 +123,23 @@ class Db {
         }
         try {
             $attempts--;
-            if(!$this->begin()){
+            if(!static::begin()){
                 throw new PDOException('transaction start failed.');
             }
-            $transaction($this);
-            if(!$this->commit()){
+            $transaction(static::$_instance);
+            if(!static::commit()){
                 throw new PDOException('transaction commit failed.');
             }
             $err = '';
         } catch(PDOException $e) {
-            $this->rollback();
+            static::rollback();
             $err = $e->getMessage();
             if ($attempts > 0) {
-                return $this->transaction($transaction, $attempts);
+                return static::transaction($transaction, $attempts);
             }
             return $err;
         }
         return $err;
-    }
-
-    /**
-     * __callStatic
-     */
-    public static function __callStatic($name, $arguments) {
-        if(method_exists(static::class, $name)){
-            call_user_func([new static(), $name], $arguments);
-        }
     }
 
 }
